@@ -1,5 +1,6 @@
 import os
 import os.path
+import pandas as pd
 from PIL import Image
 from docx import Document
 from docx.shared import Inches, Cm
@@ -9,15 +10,21 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 
-def get_image_files(folder_path):
+def get_image_files_with_ids(folder_path):
     """
-    Retrieve all image files from the specified folder.
+    Retrieve all image files from the specified folder and match with IDs if excel provided.
     
     :param folder_path: Path to the folder containing images
-    :return: List of full paths to image files
+    :param excel_path: Optional path to Excel file containing IDs
+    :return: List of tuples (file_path, id) or just file paths if no Excel
     """
     image_files = []
-    for filename in os.listdir(folder_path):
+    files = sorted(os.listdir(folder_path))
+    sorted_files = sorted(files, key=lambda x: int(x.split('.')[0]))
+    
+    # Get all valid image files
+    for filename in sorted_files:
+        print(filename)
         full_path = os.path.join(folder_path, filename)
         try:
             # Use Pillow to check if it's a valid image
@@ -27,14 +34,15 @@ def get_image_files(folder_path):
         except (IOError, SyntaxError):
             # Not a valid image file
             continue
-    return sorted(image_files)  # Sort images for consistent ordering
+    
+    return image_files
 
-def create_image_document(image_files, folder_name, output_path=None):
+def create_image_document(image_files_with_ids, folder_name, output_path=None):
     """
     Create a document with images arranged in a grid, 
     creating multiple pages as needed.
     
-    :param image_files: List of image file paths
+    :param image_files_with_ids: List of tuples (file_path, id)
     :param folder_name: Name of the source folder
     :param output_path: Optional path to save the output document
     """
@@ -57,7 +65,7 @@ def create_image_document(image_files, folder_name, output_path=None):
     sections[0].right_margin = Cm(0.25)
     
     # Process images in batches of 8 (4 rows, 2 columns)
-    for batch_start in range(0, len(image_files), 8):
+    for batch_start in range(0, len(image_files_with_ids), 8):
         # Create a new table for each page
         table = document.add_table(rows=4, cols=2)
         
@@ -74,10 +82,10 @@ def create_image_document(image_files, folder_name, output_path=None):
                 )
         
         # Get the current batch of images (up to 8)
-        batch_images = image_files[batch_start:batch_start+8]
+        batch_images = image_files_with_ids[batch_start:batch_start+8]
         
         # Insert images in the current batch
-        for i, image_path in enumerate(batch_images):
+        for i, (image_path) in enumerate(batch_images):
             row = i // 2
             col = i % 2
             
@@ -94,6 +102,7 @@ def create_image_document(image_files, folder_name, output_path=None):
             # Add picture with a consistent width that fills the page
             run = paragraph.add_run()
             run.add_picture(image_path, width=Inches(4.5))
+            
     
     # Generate output path if not provided
     if output_path is None:
@@ -123,18 +132,19 @@ def main():
         else:
             print("Invalid folder path. Please try again.")
     
+    
     # Get folder name from path
     folder_name = os.path.basename(os.path.normpath(folder_path))
     
-    # Get image files
-    image_files = get_image_files(folder_path)
+    # Get image files with IDs
+    image_files_with_ids = get_image_files_with_ids(folder_path)
     
-    if not image_files:
+    if not image_files_with_ids:
         print("No image files found in the specified folder.")
         return
     
     # Create document with images
-    create_image_document(image_files, folder_name)
+    create_image_document(image_files_with_ids, folder_name)
 
 if __name__ == "__main__":
     main()
