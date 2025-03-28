@@ -107,207 +107,121 @@ def add_horizontal_line(paragraph, color="C09B55"):
     pBdr.append(border)
     pPr.append(pBdr)
 
-def create_card(doc, data, card_width_pt, logo_path):
-    """Create a single card with the given data."""
-    # Create a table for the card layout with border
-    table = doc.add_table(rows=1, cols=2)
-    table.autofit = False
-    table.allow_autofit = False
+def create_card_image(data, logo_path, output_path, card_width_px=800, card_height_px=400):
+    """Create a card image with the given data."""
+    # Create a new image with a white background
+    img = Image.new('RGB', (card_width_px, card_height_px), color='white')
+    draw = ImageDraw.Draw(img)
     
-    # Set table dimensions and column widths (65% left column, 35% right column)
-    left_width = card_width_pt * 0.55
-    right_width = card_width_pt * 0.45
+    # Load fonts
+    try:
+        # Try to use a custom font if available
+        header_font = ImageFont.truetype("resources/arial_bold.ttf", 30)
+        data_font = ImageFont.truetype("resources/arial.ttf", 24)
+        label_font = ImageFont.truetype("resources/arial_bold.ttf", 20)
+    except IOError:
+        # Fallback to default font
+        header_font = ImageFont.load_default()
+        data_font = ImageFont.load_default()
+        label_font = ImageFont.load_default()
     
-    table.columns[0].width = Pt(left_width)
-    table.columns[1].width = Pt(right_width)
+    # Define colors
+    gold_color = (192, 155, 85)  # RGB for gold
+    text_color = (0, 0, 0)  # Black
     
-    # Add thicker golden border to the table (3x the field lines)
-    add_border_to_table(table, color="C09B55", size=12)
+    # Draw ornate golden border
+    border_width = 20
+    border_color = gold_color
+    draw.rectangle([0, 0, card_width_px-1, card_height_px-1], 
+                   outline=border_color, 
+                   width=border_width)
     
-    # Get the left column for text content
-    left_cell = table.cell(0, 0)
-    right_cell = table.cell(0, 1)
+    # Draw decorative corner elements
+    corner_size = 50
+    corner_color = gold_color
+    # Top-left
+    draw.line([(0, 0), (corner_size, 0)], fill=corner_color, width=border_width//2)
+    draw.line([(0, 0), (0, corner_size)], fill=corner_color, width=border_width//2)
+    # Top-right
+    draw.line([(card_width_px-1, 0), (card_width_px-1-corner_size, 0)], fill=corner_color, width=border_width//2)
+    draw.line([(card_width_px-1, 0), (card_width_px-1, corner_size)], fill=corner_color, width=border_width//2)
+    # Bottom-left
+    draw.line([(0, card_height_px-1), (corner_size, card_height_px-1)], fill=corner_color, width=border_width//2)
+    draw.line([(0, card_height_px-1), (0, card_height_px-1-corner_size)], fill=corner_color, width=border_width//2)
+    # Bottom-right
+    draw.line([(card_width_px-1, card_height_px-1), (card_width_px-1-corner_size, card_height_px-1)], fill=corner_color, width=border_width//2)
+    draw.line([(card_width_px-1, card_height_px-1), (card_width_px-1, card_height_px-1-corner_size)], fill=corner_color, width=border_width//2)
     
-    # Set cell margins (reduced for compactness)
-    for cell in [left_cell, right_cell]:
-        tc = cell._tc
-        tcPr = tc.get_or_add_tcPr()
-        tcMar = OxmlElement('w:tcMar')
-        for margin_name, margin_val in [('top', 60), ('left', 80), ('bottom', 60), ('right', 80)]:
-            node = OxmlElement(f'w:{margin_name}')
-            node.set(qn('w:w'), str(margin_val))
-            node.set(qn('w:type'), 'dxa')
-            tcMar.append(node)
-        tcPr.append(tcMar)
+    # Left side (text content)
+    left_width = int(card_width_px * 0.65)
     
-    # Remove cell borders between columns
-    for row in table.rows:
-        for cell in row.cells:
-            # Get cell properties
-            tc_pr = cell._tc.get_or_add_tcPr()
-            
-            # Remove vertical borders between cells
-            for border_side in ['left', 'right']:
-                border_elem = OxmlElement(f'w:{border_side}')
-                border_elem.set(qn('w:val'), 'nil')
-                
-                # Check if tcBorders element already exists
-                tc_borders = None
-                for child in tc_pr:
-                    if child.tag.endswith('tcBorders'):
-                        tc_borders = child
-                        break
-                
-                # If tcBorders doesn't exist, create it
-                if tc_borders is None:
-                    tc_borders = OxmlElement('w:tcBorders')
-                    tc_pr.append(tc_borders)
-                
-                # Replace or add border element
-                for i, child in enumerate(tc_borders):
-                    if child.tag.endswith(border_side):
-                        tc_borders[i] = border_elem
-                        break
-                else:
-                    tc_borders.append(border_elem)
+    # Vertical positions for different fields
+    y_start = 80
+    line_height = 50
     
-    # Define gold color to use consistently
-    gold_color = RGBColor(192, 155, 85)
+    # Fields to display
+    fields = [
+        ("LAABHARTHI NAME", data['LAABHARTHI_NAME']),
+        ("CONTACT NUMBER", data['CONTACT_NUMBER']),
+        ("ARPIT GROUP", data['ARPIT_GROUP']),
+        ("AREA", data['AREA'])
+    ]
     
-    # LEFT COLUMN CONTENT
-    # Reduced header size by 30% (from Pt(12) to Pt(8.4))
-    # Reduced spacing between fields by 50% (from Pt(3) to Pt(1.5))
-    header_font_size = Pt(8.5)
-    data_font_size = Pt(8)
-    name_font_size = Pt(10)
-    field_spacing = Pt(1.5)
+    # Draw fields
+    for i, (label, value) in enumerate(fields):
+        # Draw label
+        draw.text((40, y_start + i*line_height), 
+                  label, 
+                  font=label_font, 
+                  fill=gold_color)
+        
+        # Draw value
+        draw.text((40, y_start + i*line_height + 35), 
+                  value, 
+                  font=data_font, 
+                  fill=text_color)
+        
+        # Draw horizontal line
+        line_y = y_start + (i+1)*line_height + 20
+        draw.line([(40, line_y), (left_width-40, line_y)], 
+                  fill=gold_color, 
+                  width=2)
     
-    # Title (LAABHARTHI NAME)
-    title_para = left_cell.paragraphs[0]
-    title_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    title_run = title_para.add_run("LAABHARTHI NAME")
-    title_run.bold = True
-    title_run.font.size = header_font_size
-    title_run.font.color.rgb = gold_color
-    title_para.paragraph_format.space_after = Pt(0)
+    # Right side (logo and amount)
+    right_start_x = left_width
     
-    # Add name data under title
-    name_data_para = left_cell.add_paragraph()
-    name_data_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    name_data_run = name_data_para.add_run(data['LAABHARTHI_NAME'])
-    name_data_run.font.size = name_font_size
-    name_data_run.font.color.rgb = gold_color  # Same gold color as headings
-    name_data_para.paragraph_format.space_after = Pt(0)
-    
-    # Add horizontal line after name
-    name_line = left_cell.add_paragraph()
-    add_horizontal_line(name_line)
-    name_line.paragraph_format.space_after = field_spacing
-    
-    # Contact Number label
-    contact_label = left_cell.add_paragraph()
-    contact_label.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    contact_run = contact_label.add_run("CONTACT NUMBER")
-    contact_run.bold = True
-    contact_run.font.size = header_font_size
-    contact_run.font.color.rgb = gold_color
-    contact_label.paragraph_format.space_after = Pt(0)
-    
-    # Add contact data
-    contact_data_para = left_cell.add_paragraph()
-    contact_data_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    contact_data_run = contact_data_para.add_run(data['CONTACT_NUMBER'])
-    contact_data_run.font.size = data_font_size
-    contact_data_run.font.color.rgb = gold_color  # Same gold color as headings
-    contact_data_para.paragraph_format.space_after = Pt(0)
-    
-    # Add horizontal line after contact
-    contact_line = left_cell.add_paragraph()
-    add_horizontal_line(contact_line)
-    contact_line.paragraph_format.space_after = field_spacing
-    
-    # Arpit Group label
-    group_label = left_cell.add_paragraph()
-    group_label.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    group_run = group_label.add_run("ARPIT GROUP (if applicable)")
-    group_run.bold = True
-    group_run.font.size = header_font_size
-    group_run.font.color.rgb = gold_color
-    group_label.paragraph_format.space_after = Pt(0)
-    
-    # Add group data
-    group_data_para = left_cell.add_paragraph()
-    group_data_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    group_data_run = group_data_para.add_run(data['ARPIT_GROUP'])
-    group_data_run.font.size = data_font_size
-    group_data_run.font.color.rgb = gold_color  # Same gold color as headings
-    group_data_para.paragraph_format.space_after = Pt(0)
-    
-    # Add horizontal line after group
-    group_line = left_cell.add_paragraph()
-    add_horizontal_line(group_line)
-    group_line.paragraph_format.space_after = field_spacing
-    
-    # Area label
-    area_label = left_cell.add_paragraph()
-    area_label.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    area_run = area_label.add_run("AREA")
-    area_run.bold = True
-    area_run.font.size = header_font_size
-    area_run.font.color.rgb = gold_color
-    area_label.paragraph_format.space_after = Pt(0)
-    
-    # Add area data
-    area_data_para = left_cell.add_paragraph()
-    area_data_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    area_data_run = area_data_para.add_run(data['AREA'])
-    area_data_run.font.size = data_font_size
-    area_data_run.font.color.rgb = gold_color  # Same gold color as headings
-    area_data_para.paragraph_format.space_after = Pt(0)
-    
-    # No horizontal line after the last field (area)
-    
-    # RIGHT COLUMN CONTENT (logo and celebrating text)
-    # Add the logo image
-    logo_para = right_cell.paragraphs[0]
-    logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    logo_run = logo_para.add_run()
-    
-    # Insert logo image
+    # Add logo
     if os.path.exists(logo_path):
-        # Smaller logo for better fit
-        logo_run.add_picture(logo_path, width=Inches(1.5))
+        logo = Image.open(logo_path)
+        # Resize logo to fit
+        logo_size = 250
+        logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
+        
+        # Calculate logo position
+        logo_x = right_start_x + (card_width_px - right_start_x - logo_size) // 2
+        logo_y = 100
+        
+        # Paste logo
+        img.paste(logo, (logo_x, logo_y), logo if logo.mode == 'RGBA' else None)
     
-    # Create a container for the celebration text and amount
-    celebration_container = right_cell.add_paragraph()
-    celebration_container.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    celebration_container.paragraph_format.space_before = Pt(20)
+    # Add amount text
+    amount_text = "Amount Rs. 1000/-"
+    amount_bbox = draw.textbbox((0, 0), amount_text, font=header_font)
+    amount_width = amount_bbox[2] - amount_bbox[0]
+    draw.text((right_start_x + (card_width_px - right_start_x - amount_width) // 2, 300), 
+              amount_text, 
+              font=header_font, 
+              fill=gold_color)
     
-
-    # Amount text aligned with Celebrating text (left aligned)
-    amount_run = celebration_container.add_run("Amount Rs. 1000/-")
-    amount_run.font.size = Pt(8)
-    amount_run.bold = True
-    amount_run.font.color.rgb = gold_color
-    amount_run.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    # Ensure output directory exists
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
-    return table
-
-# def paragraph_format_run(cell):
-#     paragraph = cell.paragraphs[0]
-#     paragraph = cell.add_paragraph()
-#     format = paragraph.paragraph_format
-#     run = paragraph.add_run()
-    
-#     format.space_before = Pt(1)
-#     format.space_after = Pt(10)
-#     format.line_spacing = 1.0
-#     format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-#     return paragraph, format, run
+    # Save the image
+    img.save(output_path)
+    return output_path
 
 def generate_cards(csv_file, output_file, rows=4, cols=2, logo_path=None):
-    """Generate a Word document with cards from CSV data."""
+    """Generate a Word document with card images."""
     # Generate or use existing logo
     if logo_path and os.path.exists(logo_path):
         final_logo_path = use_external_logo(src_image=logo_path)
@@ -337,38 +251,54 @@ def generate_cards(csv_file, output_file, rows=4, cols=2, logo_path=None):
     available_width = Pt(section.page_width.pt - section.left_margin.pt - section.right_margin.pt)
     available_height = Pt(section.page_height.pt - section.top_margin.pt - section.bottom_margin.pt)
 
-    card_width_pt = (available_width.pt / cols) - 4  # 8pt gap between cards
+    # Create a temporary directory for card images
+    temp_dir = os.path.join(os.path.dirname(output_file), 'temp_card_images')
+    os.makedirs(temp_dir, exist_ok=True)
     
-    # Calculate card dimensions with minimal gaps between cards
-    card_height_pt = (available_height.pt / rows) - 4  # 8pt gap between cards
-    
-    # Generate cards (8 per page = 4 rows x 2 columns)
-    cards_per_page = rows * cols
-    
-    # Process each record in the DataFrame
+    # Generate card images
+    card_images = []
     for i, record in enumerate(df.to_dict('records')):
-        # Determine position on the page
-        page_position = i % cards_per_page
-        row = page_position // cols
-        col = page_position % cols
-        
-        # Add page break if needed
-        if page_position == 0 and i > 0:
+        # Generate unique filename for each card image
+        card_image_path = os.path.join(temp_dir, f'card_{i}.jpg')
+        create_card_image(record, final_logo_path, card_image_path)
+        card_images.append(card_image_path)
+    
+    # Process card images into the document
+    for i in range(0, len(card_images), rows * cols):
+        # Add a new page if not the first page
+        if i > 0:
             doc.add_page_break()
         
-        # Create card
-        card = create_card(doc, record, card_width_pt, final_logo_path)
+        # Create a table to hold the images
+        table = doc.add_table(rows=rows, cols=cols)
+        table.style = 'Table Grid'
+        table.autofit = False
         
-        # Add minimal spacing after each card except for the last one on the page
-        if page_position < cards_per_page - 1:
-            spacing_para = doc.add_paragraph()
-            if (page_position + 1) % cols == 0:  # If at the end of a row
-                spacing_para.paragraph_format.space_after = Pt(4)  # Minimal space between rows
-            else:
-                spacing_para.paragraph_format.space_after = Pt(0)  # No space between columns
+        # Fill the table with images
+        for r in range(rows):
+            for c in range(cols):
+                # Calculate the image index
+                img_index = i + r * cols + c
+                
+                # Break if we've run out of images
+                if img_index >= len(card_images):
+                    break
+                
+                # Get the cell and add the image
+                cell = table.cell(r, c)
+                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                
+                # Add image to the cell
+                cell.paragraphs[0].add_run().add_picture(card_images[img_index], width=Inches(2.5))
     
     # Save the document
     doc.save(output_file)
+    
+    # Clean up temporary image files
+    for img_path in card_images:
+        os.remove(img_path)
+    os.rmdir(temp_dir)
+    
     print(f"Cards generated successfully and saved to {output_file}")
 
 if __name__ == "__main__":
