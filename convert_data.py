@@ -56,6 +56,7 @@ def process_csv_in_batches(input_file, output_prefix="processed_data", batch_siz
 
         # Verify required columns exist
         required_columns = {
+            "id": ["id", "ID", "Id", "serial", "Serial No", "serial_no"],
             "first_name": ["first_name", "firstname", "fname", "First Name"],
             "last_name": ["last_name", "lastname", "lname", "Last Name"],
             "arpit_group": ["arpit_group", "arpitgroup", "group", "Arpit group"],
@@ -92,6 +93,9 @@ def process_csv_in_batches(input_file, output_prefix="processed_data", batch_siz
 
         # Create transformed columns
         processed_df = pd.DataFrame()
+
+        # Add ID column first
+        processed_df["ID"] = df[column_mapping["id"]].astype(str)
 
         # Combine and capitalize names, handling multiple words
         first_names = df[column_mapping["first_name"]].apply(capitalize_words)
